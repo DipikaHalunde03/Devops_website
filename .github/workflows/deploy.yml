@@ -3,16 +3,41 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
-    
-permissions:           # ← add this block
+
+permissions:
   contents: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install tools
+        run: |
+          npm install -g html-validate
+          npm install -g stylelint stylelint-config-standard
+          npm install -g linkinator
+          npm install -g cspell
+
+      - name: Check HTML
+        run: html-validate index.html
+
+      - name: Check CSS
+        run: stylelint "*.css"
+
+      - name: Check broken links
+        run: linkinator index.html --skip "^(?!http)" 
+
+      - name: Check spellings
+        run: cspell "**/*.html"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

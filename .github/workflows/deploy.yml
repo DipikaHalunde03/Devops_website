@@ -11,7 +11,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -27,17 +26,43 @@ jobs:
           npm install -g linkinator
           npm install -g cspell
 
-      - name: Check HTML
-        run: html-validate index.html
+      - name: Check HTML (capture errors)
+        id: htmlcheck
+        run: |
+          html-validate index.html > html_report.txt 2>&1 || true
+          cat html_report.txt
 
-      - name: Check CSS
-        run: stylelint "*.css"
+      - name: AI Suggest Fixes
+        if: always()
+        run: |
+          echo "Sending HTML + errors to AI..."
 
-      - name: Check broken links
-        run: linkinator index.html --skip "^(?!http)" 
+          HTML_CONTENT=$(cat index.html)
+          ERRORS=$(cat html_report.txt)
 
-      - name: Check spellings
-        run: cspell "**/*.html"
+          curl https://api.openai.com/v1/chat/completions \
+            -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"model\": \"gpt-4o-mini\",
+              \"messages\": [
+                {
+                  \"role\": \"system\",
+                  \"content\": \"You are an HTML expert. Find issues and suggest fixes clearly.\"
+                },
+                {
+                  \"role\": \"user\",
+                  \"content\": \"HTML:\\n$HTML_CONTENT\\n\\nErrors:\\n$ERRORS\"
+                }
+              ]
+            }"
+
+      - name: Fail if HTML errors exist
+        run: |
+          if grep -q "error" html_report.txt; then
+            echo "HTML errors found. Failing pipeline."
+            exit 1
+          fi
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

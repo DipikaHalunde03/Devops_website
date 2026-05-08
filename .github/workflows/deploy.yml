@@ -57,7 +57,7 @@ jobs:
               ]
             }"
 
-      - name: Fail if HTML errors exist
+      - name: Fail pipeline if HTML errors exist
         run: |
           if grep -q "error" html_report.txt; then
             echo "HTML errors found. Failing pipeline."
